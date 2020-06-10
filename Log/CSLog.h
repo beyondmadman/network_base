@@ -18,12 +18,10 @@ enum LOGTARGET
 	LOGTARGET_NONE
 };
 
-//#define LOG_INIT() CSLog::Instance();
-
-//ĞÅÏ¢ÈÕÖ¾
+//ä¿¡æ¯æ—¥å¿—
 #define LOG_TRACE(...)  CSLog::Append("TRACE", __VA_ARGS__);
 
-//µ÷ÊÔÈÕÖ¾
+//è°ƒè¯•æ—¥å¿—
 #define FILENAME(x) strrchr(x,'\\')?strrchr(x,'\\')+1:x
 #ifdef _DEBUG
 	#ifndef LOG_DEBUG
@@ -35,33 +33,43 @@ enum LOGTARGET
 	#endif 
 #endif 
 
-//ĞÅÏ¢ÈÕÖ¾
+//ä¿¡æ¯æ—¥å¿—
 #define LOG_INFO(...)  CSLog::Append("INFO", __VA_ARGS__);
 
-//¾¯¸æÈÕÖ¾
+//è­¦å‘Šæ—¥å¿—
 #define LOG_WARN(...)  CSLog::Append("WARN", __VA_ARGS__);
 
-//´íÎóÈÕÖ¾
+//é”™è¯¯æ—¥å¿—
 #define LOG_ERROR(...)  CSLog::Append("ERROR", __VA_ARGS__);
 
-//ÖÂÃüĞÅÏ¢
+//è‡´å‘½ä¿¡æ¯
 #define LOG_FATAL(...)  CSLog::Append("FATA", __VA_ARGS__);
 
 /**
-*   ÈÕÖ¾
+*   æ—¥å¿—
 **/
 ///////////////////////////////////////////////////////////////////////////////////
 
 class CSLog
 {
 private:
-	//¹¹Ôìº¯Êı
-	CSLog();
-	//Îö¹¹º¯Êı
-	~CSLog();
+	//æ„é€ å‡½æ•°
+	CSLog::CSLog()
+	{
+
+	}
+	//ææ„å‡½æ•°
+	CSLog::~CSLog()
+	{
+		if (m_File)
+		{
+			fclose(m_File);
+			m_File = nullptr;
+		}
+	}
 
 public:
-	//³õÊ¼»¯
+	//åˆå§‹åŒ–
 	void InitLog(LOGTARGET logTarget,const string &fileName = "")
 	{
 		if (logTarget == LOGTARGET_FILE)
@@ -86,7 +94,7 @@ public:
 		return log;
 	}
 
-	//Ìí¼ÓÈÕÖ¾
+	//æ·»åŠ æ—¥å¿—
     template<typename ...Args>
 	static void Append(const char* logLevel,
 		unsigned char* fileName,
@@ -113,9 +121,9 @@ public:
 		}
 	}
 	
-	FILE*                               m_File;                           //ÈÕÖ¾ÎÄ¼ş
-	mutex                               m_mutex;                          //»¥³â¶ÔÏó
-	LOGTARGET                           m_outTarget;                      //Êä³öÎ»ÖÃ
+	FILE*                               m_File;                           //æ—¥å¿—æ–‡ä»¶
+	mutex                               m_mutex;                          //äº’æ–¥å¯¹è±¡
+	LOGTARGET                           m_outTarget;                      //è¾“å‡ºä½ç½®
 };
 
 ///////////////////////////////////////////////////////////////////////////////////
