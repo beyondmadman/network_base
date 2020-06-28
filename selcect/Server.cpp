@@ -1,28 +1,6 @@
-#ifdef _WIN32
-#define WIN32_LEAN_AND_MEAN
-#define _WINSOCK_DEPRECATED_NO_WARNINGS
-//#include<windows.h>
-#include<WinSock2.h>
-#pragma comment(lib,"ws2_32.lib")
+#include "CSFDSet.h"
 
-typedef int	socklen_t;
-#else
-#include<stdlib.h>
-#include<unistd.h>
-#include<sys/socket.h>
-#include<netinet/in.h>
-#include<arpa/inet.h>
-#include<ctype.h>
-#include<string.h>
-#include<errno.h>
-
-typedef int SOCKET;
-#define INVALID_SOCKET  (SOCKET)(~0)
-#define SOCKET_ERROR            (-1)
-
-#endif
-
-#include<stdio.h>
+#define CLIENT_SIZE 64
 
 int GetError()
 {
@@ -44,19 +22,18 @@ int Close(SOCKET sock)
 
 #define SERV_PORT 8080
 
-
 int main(int argc, char* argv[])
 {
 
     int ret;
 
 #ifdef _WIN32
-    //åˆå§‹åŒ–socketç¯å¢ƒ
+    //³õÊ¼»¯socket»·¾³
     WSADATA wsaData;
     WSAStartup(MAKEWORD(2, 2), &wsaData);
 #endif
 
-    //åˆ›å»ºå¥—æ¥å­—
+    //´´½¨Ì×½Ó×Ö
     SOCKET listenSock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (listenSock == INVALID_SOCKET)
     {
@@ -67,7 +44,7 @@ int main(int argc, char* argv[])
         printf("socket creation succeeded.\n");
     }
 
-    //ç»‘å®šå¥—æ¥å­—
+    //°ó¶¨Ì×½Ó×Ö
     sockaddr_in svraddr;
     svraddr.sin_family = AF_INET;
     svraddr.sin_addr.s_addr = htonl(INADDR_ANY);
@@ -82,7 +59,7 @@ int main(int argc, char* argv[])
         printf("port binding succeeded.\n");
     }
 
-    //ç›‘å¬å¥—æ¥å­—
+    //¼àÌıÌ×½Ó×Ö
     if (SOCKET_ERROR == listen(listenSock, 5))
     {
         printf("port listening failed.\n");
@@ -92,10 +69,10 @@ int main(int argc, char* argv[])
         printf("port listening succeeded\n");
     }
 
-    SOCKET connSock, maxSock, clients[FD_SETSIZE];
-    fd_set fdReads,fdTemps;
+    SOCKET connSock, maxSock, clients[CLIENT_SIZE];
+	CSFDSet fdReads,fdTemps;
 
-    //åˆå§‹åŒ–å®¢æˆ·ç«¯æ•°ç»„
+    //³õÊ¼»¯¿Í»§¶ËÊı×é
     for (int i = 0; i < FD_SETSIZE; i++)
     {
         clients[i] = INVALID_SOCKET;
@@ -103,20 +80,20 @@ int main(int argc, char* argv[])
     int clientsIndex = 0;
 
     maxSock = listenSock;
-    FD_ZERO(&fdReads);
-    FD_SET(listenSock, &fdReads);
+	fdReads.FD_Zero();
+	fdReads.FD_Set(listenSock);
 
     while (true)
     {
-        fdTemps = fdReads;
-        ret = select(maxSock + 1, &fdTemps, NULL, NULL, NULL);
+		fdTemps.FD_Copy(fdReads);
+        ret = select(maxSock + 1, fdTemps.GetFDSet(), NULL, NULL, NULL);
         if (ret < 0)
         {
             printf("select error.\n");
         }
 
-        //å¤„ç†æ–°å®¢æˆ·ç«¯è¿æ¥
-        if (FD_ISSET(listenSock, &fdTemps))
+        //´¦ÀíĞÂ¿Í»§¶ËÁ¬½Ó
+        if (fdTemps.FD_IsSet(listenSock))
         {
             sockaddr_in clientAddr;
             socklen_t addrLen = sizeof(sockaddr_in);
@@ -127,7 +104,7 @@ int main(int argc, char* argv[])
             } 
 
             printf("client join:socket = %d\n", connSock);
-            for (int i = 0; i < FD_SETSIZE; i++)
+            for (int i = 0; i < CLIENT_SIZE; i++)
             {
                 if (clients[i] == INVALID_SOCKET)
                 {                           
@@ -137,34 +114,30 @@ int main(int argc, char* argv[])
                 }
             }
 
-            FD_SET(connSock, &fdReads);
+			fdReads.FD_Set(connSock);
             maxSock = (maxSock < connSock) ? connSock : maxSock;
         }
 
-        //å¤„ç†å·²æœ‰å®¢æˆ·ç«¯æ•°æ®
+        //´¦ÀíÒÑÓĞ¿Í»§¶ËÊı¾İ
         SOCKET sock;
         for (int i = 0; i <= clientsIndex; i++)
         {
             sock = clients[i];
             if (sock == INVALID_SOCKET) continue;
 
-            if (FD_ISSET(sock, &fdTemps))
+            if (fdTemps.FD_IsSet(sock))
             {
                 char buf[1024] = {0};
                 int len = recv(sock, buf, sizeof(buf), 0);
-                /*if (len < 0)
-                {
-                    printf("recv error.\n");
-                }*/
-                //å®¢æˆ·ç«¯æ–­å¼€
+                //¿Í»§¶Ë¶Ï¿ª
                 if (len <= 0)
                 {
                     Close(sock);
-                    FD_CLR(sock, &fdReads);
+					fdReads.FD_Clr(sock);
                     clients[i] = INVALID_SOCKET;
                     printf("client exit:socket = %d\n", sock);
                 }	
-                //å¤„ç†æ¶ˆæ¯
+                //´¦ÀíÏûÏ¢
                 else
                 {
                     printf("recv %s\n",buf);
@@ -183,7 +156,7 @@ int main(int argc, char* argv[])
 
     Close(listenSock);
 
-    //å¸è½½socketç¯å¢ƒ
+    //Ğ¶ÔØsocket»·¾³
 #ifdef _WIN32
     WSACleanup();	
 #endif
